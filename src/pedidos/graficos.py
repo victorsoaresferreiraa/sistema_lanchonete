@@ -18,10 +18,10 @@ class GraficoController:
         try:
             # Configurar matplotlib para interface gráfica
             plt.rcParams['font.size'] = 10
-            plt.rcParams['figure.figsize'] = (12, 8)
+            plt.rcParams['figure.figsize'] = (15, 12)
             
-            # Buscar estatísticas de vendas
-            estatisticas = self.db.obter_estatisticas_vendas()
+            # Buscar estatísticas financeiras de vendas
+            estatisticas = self.db.obter_estatisticas_financeiras()
             
             if not estatisticas:
                 raise ValueError("Nenhuma venda encontrada para gerar gráfico")
@@ -32,28 +32,48 @@ class GraficoController:
             # Extrair dados
             produtos = [stat[0] for stat in estatisticas]
             quantidades = [stat[1] for stat in estatisticas]
+            receitas = [stat[2] for stat in estatisticas]
             
-            # Criar figura com subplots
-            fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 10))
+            # Criar figura com subplots 2x2
+            fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(15, 12))
             
-            # Gráfico de barras
-            bars = ax1.bar(produtos, quantidades, color='skyblue', edgecolor='navy', alpha=0.7)
-            ax1.set_title('Produtos Mais Vendidos', fontsize=14, fontweight='bold')
+            # Gráfico 1: Barras - Quantidade vendida
+            bars1 = ax1.bar(produtos, quantidades, color='skyblue', edgecolor='navy', alpha=0.7)
+            ax1.set_title('Produtos Mais Vendidos (Quantidade)', fontsize=12, fontweight='bold')
             ax1.set_xlabel('Produtos')
             ax1.set_ylabel('Quantidade Vendida')
             ax1.tick_params(axis='x', rotation=45)
             
             # Adicionar valores nas barras
-            for bar, quantidade in zip(bars, quantidades):
+            for bar, quantidade in zip(bars1, quantidades):
                 height = bar.get_height()
                 ax1.text(bar.get_x() + bar.get_width()/2., height,
                         f'{int(quantidade)}', ha='center', va='bottom')
             
-            # Gráfico de pizza
-            colors = plt.cm.Set3(range(len(produtos)))
-            wedges, texts, autotexts = ax2.pie(quantidades, labels=produtos, autopct='%1.1f%%',
-                                             colors=colors, startangle=90)
-            ax2.set_title('Distribuição de Vendas por Produto', fontsize=14, fontweight='bold')
+            # Gráfico 2: Barras - Receita por produto
+            bars2 = ax2.bar(produtos, receitas, color='lightgreen', edgecolor='darkgreen', alpha=0.7)
+            ax2.set_title('Receita por Produto (R$)', fontsize=12, fontweight='bold')
+            ax2.set_xlabel('Produtos')
+            ax2.set_ylabel('Receita (R$)')
+            ax2.tick_params(axis='x', rotation=45)
+            
+            # Adicionar valores nas barras
+            for bar, receita in zip(bars2, receitas):
+                height = bar.get_height()
+                ax2.text(bar.get_x() + bar.get_width()/2., height,
+                        f'R$ {receita:.0f}', ha='center', va='bottom')
+            
+            # Gráfico 3: Pizza - Distribuição de quantidade
+            colors1 = plt.cm.Set3(range(len(produtos)))
+            wedges1, texts1, autotexts1 = ax3.pie(quantidades, labels=produtos, autopct='%1.1f%%',
+                                                 colors=colors1, startangle=90)
+            ax3.set_title('Distribuição de Vendas (Quantidade)', fontsize=12, fontweight='bold')
+            
+            # Gráfico 4: Pizza - Distribuição de receita
+            colors2 = plt.cm.Pastel1(range(len(produtos)))
+            wedges2, texts2, autotexts2 = ax4.pie(receitas, labels=produtos, autopct='%1.1f%%',
+                                                 colors=colors2, startangle=90)
+            ax4.set_title('Distribuição de Receita (R$)', fontsize=12, fontweight='bold')
             
             # Melhorar aparência do gráfico de pizza
             for autotext in autotexts:

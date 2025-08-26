@@ -15,14 +15,22 @@ class ExportController:
     def exportar_estoque(self, arquivo=None):
         """Exporta dados do estoque para Excel"""
         try:
-            # Buscar dados do estoque
-            estoque = self.db.listar_estoque()
+            # Buscar dados do estoque completo
+            estoque = self.db.listar_estoque_completo()
             
             if not estoque:
                 raise ValueError("Nenhum produto encontrado no estoque")
                 
-            # Criar DataFrame
-            df = pd.DataFrame(estoque, columns=['Produto', 'Quantidade'])
+            # Criar DataFrame com todas as colunas
+            dados_formatados = []
+            for item in estoque:
+                produto, quantidade, preco, categoria = item[0], item[1], item[2], item[3]
+                valor_total = quantidade * preco
+                dados_formatados.append([produto, quantidade, f"R$ {preco:.2f}", categoria, f"R$ {valor_total:.2f}"])
+                
+            df = pd.DataFrame(dados_formatados, columns=[
+                'Produto', 'Quantidade', 'Preço Unitário', 'Categoria', 'Valor Total'
+            ])
             
             # Gerar nome do arquivo se não fornecido
             if not arquivo:
@@ -38,8 +46,11 @@ class ExportController:
                 
                 # Formatação básica
                 worksheet = writer.sheets['Estoque']
-                worksheet.column_dimensions['A'].width = 30
-                worksheet.column_dimensions['B'].width = 15
+                worksheet.column_dimensions['A'].width = 25  # Produto
+                worksheet.column_dimensions['B'].width = 12  # Quantidade
+                worksheet.column_dimensions['C'].width = 15  # Preço
+                worksheet.column_dimensions['D'].width = 15  # Categoria
+                worksheet.column_dimensions['E'].width = 15  # Valor Total
                 
             return arquivo
             
@@ -50,14 +61,28 @@ class ExportController:
     def exportar_historico(self, arquivo=None):
         """Exporta histórico de vendas para Excel"""
         try:
-            # Buscar dados do histórico
-            historico = self.db.listar_historico()
+            # Buscar dados do histórico completo
+            historico = self.db.listar_historico_completo()
             
             if not historico:
                 raise ValueError("Nenhuma venda encontrada no histórico")
                 
-            # Criar DataFrame
-            df = pd.DataFrame(historico, columns=['ID', 'Produto', 'Quantidade', 'Data/Hora'])
+            # Criar DataFrame com dados formatados
+            dados_formatados = []
+            for venda in historico:
+                venda_id, produto, quantidade, preco_unit, valor_total, data_hora = venda[0], venda[1], venda[2], venda[3], venda[4], venda[5]
+                dados_formatados.append([
+                    venda_id, 
+                    produto, 
+                    quantidade, 
+                    f"R$ {preco_unit:.2f}", 
+                    f"R$ {valor_total:.2f}", 
+                    data_hora
+                ])
+                
+            df = pd.DataFrame(dados_formatados, columns=[
+                'ID', 'Produto', 'Quantidade', 'Preço Unitário', 'Valor Total', 'Data/Hora'
+            ])
             
             # Gerar nome do arquivo se não fornecido
             if not arquivo:

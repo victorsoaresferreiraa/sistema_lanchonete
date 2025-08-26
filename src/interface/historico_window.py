@@ -60,19 +60,23 @@ class HistoricoWindow:
         table_frame.pack(fill=tk.BOTH, expand=True)
         
         # Treeview para exibir histórico
-        columns = ("ID", "Produto", "Quantidade", "Data/Hora")
+        columns = ("ID", "Produto", "Quantidade", "Preço Unit.", "Total", "Data/Hora")
         self.tree = ttk.Treeview(table_frame, columns=columns, show="headings", height=20)
         
         # Configurar colunas
         self.tree.heading("ID", text="ID")
         self.tree.heading("Produto", text="Produto")
-        self.tree.heading("Quantidade", text="Quantidade")
+        self.tree.heading("Quantidade", text="Qtd")
+        self.tree.heading("Preço Unit.", text="Preço Unit.")
+        self.tree.heading("Total", text="Total")
         self.tree.heading("Data/Hora", text="Data/Hora")
         
         self.tree.column("ID", width=50, anchor=tk.CENTER)
-        self.tree.column("Produto", width=200)
-        self.tree.column("Quantidade", width=100, anchor=tk.CENTER)
-        self.tree.column("Data/Hora", width=150, anchor=tk.CENTER)
+        self.tree.column("Produto", width=180)
+        self.tree.column("Quantidade", width=60, anchor=tk.CENTER)
+        self.tree.column("Preço Unit.", width=80, anchor=tk.CENTER)
+        self.tree.column("Total", width=80, anchor=tk.CENTER)
+        self.tree.column("Data/Hora", width=130, anchor=tk.CENTER)
         
         # Scrollbars
         v_scrollbar = ttk.Scrollbar(table_frame, orient=tk.VERTICAL, command=self.tree.yview)
@@ -124,28 +128,37 @@ class HistoricoWindow:
             self.tree.delete(item)
             
         try:
-            # Buscar dados do histórico
-            historico = self.historico_controller.listar_historico()
+            # Buscar dados do histórico completo
+            historico = self.historico_controller.db.listar_historico_completo()
             
             if not historico:
                 # Inserir linha indicando histórico vazio
-                self.tree.insert("", tk.END, values=("-", "Nenhuma venda registrada", "-", "-"))
+                self.tree.insert("", tk.END, values=("-", "Nenhuma venda registrada", "-", "-", "-", "-"))
                 self.stats_label.config(text="Nenhuma venda registrada")
                 return
                 
             # Inserir dados na tabela
             total_vendas = 0
             total_itens = 0
+            receita_total = 0.0
             
             for venda in historico:
-                venda_id, produto, quantidade, data_hora = venda
-                self.tree.insert("", tk.END, values=(venda_id, produto, quantidade, data_hora))
+                venda_id, produto, quantidade, preco_unit, valor_total, data_hora = venda[0], venda[1], venda[2], venda[3], venda[4], venda[5]
+                
+                # Formatar valores monetários
+                preco_fmt = f"R$ {preco_unit:.2f}".replace('.', ',')
+                total_fmt = f"R$ {valor_total:.2f}".replace('.', ',')
+                
+                self.tree.insert("", tk.END, values=(venda_id, produto, quantidade, preco_fmt, total_fmt, data_hora))
+                
                 total_vendas += 1
                 total_itens += quantidade
+                receita_total += valor_total
                 
             # Atualizar estatísticas
+            receita_fmt = f"R$ {receita_total:.2f}".replace('.', ',')
             self.stats_label.config(
-                text=f"Total de vendas: {total_vendas} | Total de itens vendidos: {total_itens}"
+                text=f"Total de vendas: {total_vendas} | Itens vendidos: {total_itens} | Receita total: {receita_fmt}"
             )
                 
         except Exception as e:

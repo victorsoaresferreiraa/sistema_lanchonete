@@ -63,23 +63,47 @@ class MainWindow:
         venda_frame = ttk.LabelFrame(main_frame, text="Registrar Venda", padding="10")
         venda_frame.pack(fill=tk.X, pady=(0, 20))
         
-        # Campos de venda
+        # Primeira linha - Produto e Quantidade
         ttk.Label(venda_frame, text="Produto:").grid(row=0, column=0, sticky=tk.W, padx=(0, 10))
         self.produto_var = tk.StringVar()
         self.produto_entry = ttk.Entry(venda_frame, textvariable=self.produto_var, width=25)
         self.produto_entry.grid(row=0, column=1, padx=(0, 10))
+        self.produto_entry.bind('<FocusOut>', self.carregar_preco_produto)
         
         ttk.Label(venda_frame, text="Quantidade:").grid(row=0, column=2, sticky=tk.W, padx=(10, 10))
         self.quantidade_var = tk.StringVar()
-        self.quantidade_entry = ttk.Entry(venda_frame, textvariable=self.quantidade_var, width=10)
+        self.quantidade_entry = ttk.Entry(venda_frame, textvariable=self.quantidade_var, width=8)
         self.quantidade_entry.grid(row=0, column=3)
+        self.quantidade_entry.bind('<KeyRelease>', self.calcular_total)
         
-        # Botão registrar venda
+        # Segunda linha - Preço e Total
+        ttk.Label(venda_frame, text="Preço Unit. (R$):").grid(row=1, column=0, sticky=tk.W, padx=(0, 10), pady=(5, 0))
+        self.preco_venda_var = tk.StringVar(value="0,00")
+        self.preco_venda_entry = ttk.Entry(venda_frame, textvariable=self.preco_venda_var, width=10)
+        self.preco_venda_entry.grid(row=1, column=1, sticky=tk.W, padx=(0, 10), pady=(5, 0))
+        self.preco_venda_entry.bind('<KeyRelease>', self.calcular_total)
+        
+        ttk.Label(venda_frame, text="Total (R$):").grid(row=1, column=2, sticky=tk.W, padx=(10, 10), pady=(5, 0))
+        self.total_venda_var = tk.StringVar(value="R$ 0,00")
+        self.total_label = ttk.Label(venda_frame, textvariable=self.total_venda_var, 
+                                    font=("Arial", 11, "bold"), foreground="green")
+        self.total_label.grid(row=1, column=3, sticky=tk.W, pady=(5, 0))
+        
+        # Terceira linha - Botões
+        button_frame = ttk.Frame(venda_frame)
+        button_frame.grid(row=2, column=0, columnspan=4, pady=(10, 0), sticky=tk.W)
+        
         ttk.Button(
-            venda_frame,
+            button_frame,
             text="Registrar Venda",
             command=self.registrar_venda
-        ).grid(row=1, column=0, columnspan=4, pady=(10, 0))
+        ).pack(side=tk.LEFT, padx=(0, 10))
+        
+        ttk.Button(
+            button_frame,
+            text="Limpar",
+            command=self.limpar_campos_venda
+        ).pack(side=tk.LEFT)
         
         # Frame para botões principais
         buttons_frame = ttk.Frame(main_frame)
@@ -130,11 +154,50 @@ class MainWindow:
         )
         self.status_label.pack(fill=tk.X)
         
+    def carregar_preco_produto(self, event=None):
+        """Carrega o preço do produto quando selecionado"""
+        try:
+            produto = self.produto_var.get().strip()
+            if produto:
+                produto_info = self.estoque_controller.consultar_produto_completo(produto)
+                if produto_info:
+                    preco = produto_info[2]  # preço
+                    self.preco_venda_var.set(f"{preco:.2f}".replace('.', ','))
+                else:
+                    self.preco_venda_var.set("0,00")
+                self.calcular_total()
+        except Exception:
+            self.preco_venda_var.set("0,00")
+            
+    def calcular_total(self, event=None):
+        """Calcula o total da venda"""
+        try:
+            quantidade_str = self.quantidade_var.get().strip()
+            preco_str = self.preco_venda_var.get().strip().replace(',', '.')
+            
+            if quantidade_str and preco_str:
+                quantidade = float(quantidade_str)
+                preco = float(preco_str)
+                total = quantidade * preco
+                self.total_venda_var.set(f"R$ {total:.2f}".replace('.', ','))
+            else:
+                self.total_venda_var.set("R$ 0,00")
+        except ValueError:
+            self.total_venda_var.set("R$ 0,00")
+            
+    def limpar_campos_venda(self):
+        """Limpa todos os campos de venda"""
+        self.produto_var.set("")
+        self.quantidade_var.set("")
+        self.preco_venda_var.set("0,00")
+        self.total_venda_var.set("R$ 0,00")
+
     def registrar_venda(self):
         """Registra uma nova venda"""
         try:
             produto = self.produto_var.get().strip()
             quantidade_str = self.quantidade_var.get().strip()
+            preco_str = self.preco_venda_var.get().strip().replace(',', '.')
             
             if not produto:
                 messagebox.showerror("Erro", "Nome do produto é obrigatório!")
@@ -144,6 +207,10 @@ class MainWindow:
                 messagebox.showerror("Erro", "Quantidade é obrigatória!")
                 return
                 
+            if not preco_str or preco_str == "0":
+                messagebox.showerror("Erro", "Preço é obrigatório e deve ser maior que zero!")
+                return
+                
             try:
                 quantidade = int(quantidade_str)
                 if quantidade <= 0:
@@ -151,35 +218,49 @@ class MainWindow:
             except ValueError:
                 messagebox.showerror("Erro", "Quantidade deve ser um número inteiro positivo!")
                 return
+                
+            try:
+                preco_unitario = float(preco_str)
+                if preco_unitario <= 0:
+                    raise ValueError("Preço deve ser maior que zero")
+            except ValueError:
+                messagebox.showerror("Erro", "Preço deve ser um número válido e maior que zero!")
+                return
             
             # Verificar se há estoque suficiente
             produto_info = self.estoque_controller.consultar_produto_completo(produto)
             if produto_info is None:
-                # Produto não existe, criar com estoque zero
-                self.estoque_controller.adicionar_produto(produto, 0, 0.0)
-                estoque_atual = 0
-                preco_unitario = 0.0
+                # Produto não existe, perguntar se quer criar
+                resposta = messagebox.askyesno(
+                    "Produto não encontrado", 
+                    f"O produto '{produto}' não existe no estoque.\nDeseja criar este produto?"
+                )
+                if resposta:
+                    self.estoque_controller.adicionar_produto(produto, 0, preco_unitario)
+                    estoque_atual = 0
+                else:
+                    return
             else:
                 estoque_atual = produto_info[1]  # quantidade
-                preco_unitario = produto_info[2]  # preco
                 
             if estoque_atual < quantidade:
-                messagebox.showerror(
-                    "Erro",
-                    f"Estoque insuficiente! Disponível: {estoque_atual}, Solicitado: {quantidade}"
+                resposta = messagebox.askyesno(
+                    "Estoque insuficiente",
+                    f"Estoque insuficiente!\nDisponível: {estoque_atual}\nSolicitado: {quantidade}\n\nDeseja continuar mesmo assim?"
                 )
-                return
+                if not resposta:
+                    return
             
             # Registrar venda
             sucesso = self.historico_controller.registrar_venda(produto, quantidade, preco_unitario)
             if sucesso:
-                # Atualizar estoque
-                novo_estoque = estoque_atual - quantidade
-                self.estoque_controller.atualizar_produto(produto, novo_estoque)
+                # Atualizar estoque apenas se havia estoque suficiente
+                if estoque_atual >= quantidade:
+                    novo_estoque = estoque_atual - quantidade
+                    self.estoque_controller.atualizar_produto(produto, novo_estoque)
                 
                 # Limpar campos
-                self.produto_var.set("")
-                self.quantidade_var.set("")
+                self.limpar_campos_venda()
                 
                 # Atualizar status
                 valor_total = quantidade * preco_unitario
@@ -188,7 +269,7 @@ class MainWindow:
                 # Atualizar informações rápidas
                 self.atualizar_informacoes_rapidas()
                 
-                messagebox.showinfo("Sucesso", f"Venda registrada com sucesso!\nTotal: R$ {valor_total:.2f}")
+                messagebox.showinfo("Sucesso", f"Venda registrada com sucesso!\n\nProduto: {produto}\nQuantidade: {quantidade}\nPreço unitário: R$ {preco_unitario:.2f}\nTotal: R$ {valor_total:.2f}")
             else:
                 messagebox.showerror("Erro", "Erro ao registrar venda!")
                 
