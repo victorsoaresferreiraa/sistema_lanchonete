@@ -1,0 +1,76 @@
+📋 Instruções para Construção do Sistema da Lanchonete
+Este projeto deve ser construído com organização, clareza e foco em funcionalidade. Abaixo estão as diretrizes que devem ser seguidas à risca.
+
+1. Estrutura de Diretórios
+Crie a seguinte estrutura de pastas:
+lanchonete/
+├── src/
+│   ├── interface/
+│   ├── estoque/
+│   ├── pedidos/
+│   ├── utils/
+├── data/
+├── assets/
+├── tests/
+├── README.md
+├── pyproject.toml
+├── .gitignore
+
+
+
+2. Gerenciamento de Dependências
+Utilize o Poetry como gerenciador de pacotes. Configure o pyproject.toml com as seguintes dependências:
+- pillow → para manipulação de imagens
+- tabulate → para exibição de tabelas
+- matplotlib → para gráficos
+- pandas e openpyxl → para exportação de dados em Excel
+- nuitka → como dependência de desenvolvimento para empacotar o projeto em .exe
+A versão mínima do Python deve ser 3.10.
+
+3. Banco de Dados
+Use SQLite. Crie um banco chamado banco.db dentro da pasta data. Ele deve conter:
+- Tabela estoque com os campos:
+- produto (TEXT, chave primária)
+- quantidade (INTEGER)
+- Tabela historico_vendas com os campos:
+- id (INTEGER, chave primária autoincrementada)
+- produto (TEXT)
+- quantidade (INTEGER)
+- data_hora (TEXT)
+
+4. Interface Gráfica
+Use Tkinter com ttk. A janela principal deve conter:
+- Campo para registrar venda (produto + quantidade)
+- Botão para registrar venda
+- Botão para consultar estoque
+- Botão para exportar dados
+- Botão para visualizar histórico
+- Botão para gerar gráfico
+- Interface centralizada na tela, com layout limpo e responsivo
+
+5. Funcionalidades Obrigatórias
+- Registrar venda: atualiza o estoque e salva no histórico
+- Consultar estoque: exibe os produtos e suas quantidades
+- Exportar para Excel: gera planilha com os dados do estoque
+- Visualizar histórico: mostra todas as vendas realizadas
+- Gerar gráfico: exibe gráfico de vendas por produto
+
+6. Organização do Código
+Divida o código em módulos:
+- interface/ → janelas e componentes visuais
+- estoque/ → lógica de controle de produtos e banco
+- pedidos/ → histórico, exportações e gráficos
+- utils/ → funções auxiliares (ex: centralizar janela)
+
+7. Empacotamento
+Utilize o Nuitka para gerar um executável .exe. O ícone do programa deve estar na pasta assets e ser incluído no empacotamento. O executável deve rodar em qualquer máquina Windows sem necessidade de instalar Python.
+
+8. Documentação
+No README.md, inclua:
+- Descrição do projeto
+- Tecnologias utilizadas
+- Instruções de instalação e execução
+- Instruções para empacotamento
+- Créditos: Victor Soares Ferreira
+
+Este projeto deve ser construído com atenção aos detalhes, código limpo e modular. A interface deve ser intuitiva e o sistema deve funcionar de forma fluida, mesmo em máquinas simples. Não omita nenhuma etapa. Se algo estiver faltando, corrija antes de prosseguir.
