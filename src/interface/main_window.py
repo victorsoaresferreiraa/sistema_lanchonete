@@ -9,6 +9,7 @@ from src.pedidos.historico import HistoricoController
 from src.pedidos.export import ExportController
 from src.pedidos.graficos import GraficoController
 from src.utils.helpers import centralizar_janela
+from src.config.versioning import VersionManager, UpdateChecker
 from .estoque_window import EstoqueWindow
 from .historico_window import HistoricoWindow
 
@@ -25,6 +26,8 @@ class MainWindow:
         self.historico_controller = HistoricoController()
         self.export_controller = ExportController()
         self.grafico_controller = GraficoController()
+        self.version_manager = VersionManager()
+        self.update_checker = UpdateChecker()
         
         # Configurar interface
         self.setup_ui()
@@ -36,13 +39,25 @@ class MainWindow:
         main_frame = ttk.Frame(self.root, padding="20")
         main_frame.pack(fill=tk.BOTH, expand=True)
         
-        # Título
+        # Título com versão
+        versao = self.version_manager.obter_versao_atual()
         title_label = ttk.Label(
             main_frame, 
-            text="Sistema de Gerenciamento de Lanchonete",
+            text=f"Sistema de Gerenciamento de Lanchonete v{versao}",
             font=("Arial", 16, "bold")
         )
-        title_label.pack(pady=(0, 30))
+        title_label.pack(pady=(0, 20))
+        
+        # Frame para informações rápidas
+        info_frame = ttk.LabelFrame(main_frame, text="Resumo Rápido", padding="10")
+        info_frame.pack(fill=tk.X, pady=(0, 20))
+        
+        # Exibir informações básicas
+        self.info_label = ttk.Label(info_frame, text="Carregando informações...", font=("Arial", 10))
+        self.info_label.pack()
+        
+        # Carregar informações iniciais
+        self.atualizar_informacoes_rapidas()
         
         # Frame para registrar venda
         venda_frame = ttk.LabelFrame(main_frame, text="Registrar Venda", padding="10")
@@ -138,11 +153,15 @@ class MainWindow:
                 return
             
             # Verificar se há estoque suficiente
-            estoque_atual = self.estoque_controller.consultar_produto(produto)
-            if estoque_atual is None:
+            produto_info = self.estoque_controller.consultar_produto_completo(produto)
+            if produto_info is None:
                 # Produto não existe, criar com estoque zero
-                self.estoque_controller.adicionar_produto(produto, 0)
+                self.estoque_controller.adicionar_produto(produto, 0, 0.0)
                 estoque_atual = 0
+                preco_unitario = 0.0
+            else:
+                estoque_atual = produto_info[1]  # quantidade
+                preco_unitario = produto_info[2]  # preco
                 
             if estoque_atual < quantidade:
                 messagebox.showerror(
@@ -152,7 +171,7 @@ class MainWindow:
                 return
             
             # Registrar venda
-            sucesso = self.historico_controller.registrar_venda(produto, quantidade)
+            sucesso = self.historico_controller.registrar_venda(produto, quantidade, preco_unitario)
             if sucesso:
                 # Atualizar estoque
                 novo_estoque = estoque_atual - quantidade
@@ -163,9 +182,13 @@ class MainWindow:
                 self.quantidade_var.set("")
                 
                 # Atualizar status
-                self.status_label.config(text=f"Venda registrada: {produto} (Qtd: {quantidade})")
+                valor_total = quantidade * preco_unitario
+                self.status_label.config(text=f"Venda registrada: {produto} (Qtd: {quantidade}, Total: R$ {valor_total:.2f})")
                 
-                messagebox.showinfo("Sucesso", "Venda registrada com sucesso!")
+                # Atualizar informações rápidas
+                self.atualizar_informacoes_rapidas()
+                
+                messagebox.showinfo("Sucesso", f"Venda registrada com sucesso!\nTotal: R$ {valor_total:.2f}")
             else:
                 messagebox.showerror("Erro", "Erro ao registrar venda!")
                 
@@ -200,6 +223,56 @@ class MainWindow:
         except Exception as e:
             messagebox.showerror("Erro", f"Erro ao gerar gráfico: {str(e)}")
             
+    def atualizar_informacoes_rapidas(self):
+        """Atualiza as informações rápidas exibidas"""
+        try:
+            # Obter estatísticas básicas
+            estoque = self.estoque_controller.listar_estoque()
+            total_produtos = len(estoque)
+            
+            receita_total = self.historico_controller.obter_receita_total()
+            valor_estoque = self.estoque_controller.obter_valor_total_estoque()
+            
+            info_text = f"Produtos cadastrados: {total_produtos} | "
+            info_text += f"Receita total: R$ {receita_total:.2f} | "
+            info_text += f"Valor do estoque: R$ {valor_estoque:.2f}"
+            
+            self.info_label.config(text=info_text)
+            
+        except Exception as e:
+            self.info_label.config(text="Erro ao carregar informações")
+            
+    def verificar_atualizacoes_menu(self):
+        """Menu para verificar atualizações manualmente"""
+        try:
+            tem_atualizacao, info = self.update_checker.verificar_ao_iniciar()
+            
+            if tem_atualizacao:
+                mensagem = f"Nova versão disponível: {info['versao']}\n\n"
+                mensagem += f"Descrição: {info['descricao']}\n\n"
+                mensagem += "Deseja baixar a atualização?"
+                
+                resposta = messagebox.askyesno("Atualização Disponível", mensagem)
+                if resposta and info.get('url_download'):
+                    import webbrowser
+                    webbrowser.open(info['url_download'])
+            else:
+                messagebox.showinfo("Atualizações", "Sistema está atualizado!")
+                
+        except Exception as e:
+            messagebox.showerror("Erro", f"Erro ao verificar atualizações: {str(e)}")
+            
     def run(self):
         """Inicia a aplicação"""
+        # Verificar atualizações na inicialização (se configurado)
+        try:
+            tem_atualizacao, info = self.update_checker.verificar_ao_iniciar()
+            if tem_atualizacao and isinstance(info, dict) and info.get('obrigatoria'):
+                messagebox.showwarning(
+                    "Atualização Obrigatória", 
+                    f"É necessário atualizar para a versão {info['versao']} para continuar usando o sistema."
+                )
+        except:
+            pass  # Ignorar erros de verificação de atualização
+            
         self.root.mainloop()

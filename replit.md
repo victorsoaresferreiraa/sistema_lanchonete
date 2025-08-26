@@ -5,6 +5,7 @@ This is a comprehensive snack bar management system built in Python with a Tkint
 # User Preferences
 
 Preferred communication style: Simple, everyday language.
+System requirements: Executable (.exe) with future update capabilities, pricing system integration, comprehensive stock management.
 
 # System Architecture
 
@@ -23,16 +24,22 @@ Preferred communication style: Simple, everyday language.
 
 ## Data Storage
 - **Database**: SQLite with local file storage (data/banco.db)
-- **Schema Design**: Two main tables - 'estoque' (inventory) and 'historico_vendas' (sales history)
+- **Schema Design**: Enhanced tables with pricing and configuration support
+  - 'estoque': inventory with pricing, categories, and timestamps
+  - 'historico_vendas': sales history with financial tracking
+  - 'configuracoes': system settings and version control
 - **Data Management**: DatabaseManager class handles all database operations with connection pooling
 - **File Structure**: Organized data directory for database and exported files
+- **Migration System**: Automatic database schema updates for version upgrades
 
 ## Key Components
-- **Inventory Controller**: Manages product addition, updates, and stock queries
-- **Sales History Controller**: Handles sales recording and history retrieval
+- **Inventory Controller**: Manages product addition, updates, stock queries, and pricing
+- **Sales History Controller**: Handles sales recording, history retrieval, and financial tracking
 - **Export Controller**: Generates Excel reports using pandas and openpyxl
 - **Chart Controller**: Creates interactive visualizations with matplotlib
 - **Utility Helpers**: Common functions for window centering, date formatting, and validation
+- **Version Manager**: Handles system versioning and automatic updates
+- **Update Checker**: Monitors for new versions and manages update process
 
 ## Testing Framework
 - **Testing**: Unit tests using unittest framework
@@ -55,7 +62,8 @@ Preferred communication style: Simple, everyday language.
 - **Black**: Code formatting and style consistency
 - **Flake8**: Code linting and quality analysis
 - **MyPy**: Static type checking
-- **Nuitka**: Executable packaging for Windows distribution
+- **Nuitka**: Executable packaging for Windows distribution with custom build script
+- **Build System**: Automated executable generation with icon and asset embedding
 
 ## Data Processing
 - **tabulate**: Table formatting for console output and reports

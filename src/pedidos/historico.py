@@ -10,7 +10,7 @@ class HistoricoController:
     def __init__(self):
         self.db = DatabaseManager()
         
-    def registrar_venda(self, produto, quantidade):
+    def registrar_venda(self, produto, quantidade, preco_unitario=0.0, vendedor='', observacoes=''):
         """Registra uma nova venda"""
         if not produto or not produto.strip():
             raise ValueError("Nome do produto não pode estar vazio")
@@ -18,8 +18,11 @@ class HistoricoController:
         if quantidade <= 0:
             raise ValueError("Quantidade deve ser maior que zero")
             
+        if preco_unitario < 0:
+            raise ValueError("Preço unitário não pode ser negativo")
+            
         produto = produto.strip().title()
-        return self.db.registrar_venda(produto, quantidade)
+        return self.db.registrar_venda(produto, quantidade, preco_unitario, vendedor, observacoes)
         
     def listar_historico(self, limite=None):
         """Lista o histórico de vendas"""
@@ -36,6 +39,14 @@ class HistoricoController:
     def obter_estatisticas(self):
         """Obtém estatísticas de vendas"""
         return self.db.obter_estatisticas_vendas()
+        
+    def obter_estatisticas_financeiras(self):
+        """Obtém estatísticas financeiras"""
+        return self.db.obter_estatisticas_financeiras()
+        
+    def obter_receita_total(self):
+        """Obtém a receita total"""
+        return self.db.obter_receita_total()
         
     def vendas_por_periodo(self, data_inicio=None, data_fim=None):
         """Obtém vendas por período específico"""

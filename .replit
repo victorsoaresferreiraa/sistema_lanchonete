@@ -21,9 +21,9 @@ args = "Snack Bar Management System"
 name = "Snack Bar Management System"
 author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "pip install pillow tabulate matplotlib pandas openpyxl && python main.py"
-
 [workflows.workflow.metadata]
 outputType = "vnc"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pip install requests && python main.py"
