@@ -1,2 +1,29 @@
+modules = ["python-3.11"]
 [agent]
 expertMode = true
+
+[nix]
+channel = "stable-25_05"
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Snack Bar Management System"
+
+[[workflows.workflow]]
+name = "Snack Bar Management System"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pip install pillow tabulate matplotlib pandas openpyxl && python main.py"
+
+[workflows.workflow.metadata]
+outputType = "vnc"
