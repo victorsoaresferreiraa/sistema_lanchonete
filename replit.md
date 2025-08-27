@@ -6,6 +6,8 @@ This is a comprehensive snack bar management system built in Python with a Tkint
 
 Preferred communication style: Simple, everyday language.
 System requirements: Executable (.exe) with future update capabilities, pricing system integration, comprehensive stock management.
+Build issues: Nuitka download failures resolved with PyInstaller alternative and .bat execution scripts.
+Priority: System must work immediately in real lanchonete environment.
 
 # System Architecture
 
