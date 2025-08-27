@@ -1,0 +1,35 @@
+# Sistema de Lanchonete - Dependências
+
+# Interface gráfica (já incluído no Python)
+# tkinter - Built-in
+
+# Banco de dados (já incluído no Python)  
+# sqlite3 - Built-in
+
+# Manipulação de dados e exportação
+pandas>=1.5.0
+openpyxl>=3.0.0
+
+# Gráficos e visualizações
+matplotlib>=3.5.0
+
+# Formatação de tabelas
+tabulate>=0.9.0
+
+# Build e empacotamento
+pyinstaller>=5.0
+
+# Testes
+pytest>=7.0.0
+pytest-cov>=4.0.0
+
+# Desenvolvimento (opcional)
+black>=22.0.0
+flake8>=5.0.0
+mypy>=1.0.0
+
+# Otimização de build (opcional)
+nuitka>=1.0.0
+
+# Sistema (já incluído no Python)
+# os, sys, datetime, hashlib, base64 - Built-in

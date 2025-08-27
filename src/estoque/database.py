@@ -28,7 +28,8 @@ class DatabaseManager:
             # Criar tabela estoque
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS estoque (
-                    produto TEXT PRIMARY KEY,
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    produto TEXT NOT NULL,
                     quantidade INTEGER NOT NULL DEFAULT 0,
                     preco REAL DEFAULT 0.0,
                     categoria TEXT DEFAULT 'Geral',
@@ -305,3 +306,154 @@ class DatabaseManager:
                    (chave, valor, data_atualizacao) VALUES (?, ?, ?)"""
         rows_affected = self.execute_update(query, (chave, valor, data_atual))
         return rows_affected > 0
+    
+    # === MÉTODOS PARA DASHBOARD FINANCEIRO ===
+    
+    def obter_receita_periodo(self, data_inicio, data_fim):
+        """Obtém receita total de um período específico"""
+        try:
+            # Converter datas DD/MM/YYYY para formato SQLite YYYY-MM-DD
+            def converter_data(data_str):
+                partes = data_str.split('/')
+                if len(partes) == 3:
+                    return f"{partes[2]}-{partes[1].zfill(2)}-{partes[0].zfill(2)}"
+                return data_str
+            
+            data_inicio_sql = converter_data(data_inicio)
+            data_fim_sql = converter_data(data_fim)
+            
+            query = """
+                SELECT COALESCE(SUM(valor_total), 0) 
+                FROM historico_vendas 
+                WHERE DATE(SUBSTR(data_hora, 7, 4) || '-' || 
+                          SUBSTR(data_hora, 4, 2) || '-' || 
+                          SUBSTR(data_hora, 1, 2)) 
+                BETWEEN ? AND ?
+            """
+            result = self.execute_query(query, (data_inicio_sql, data_fim_sql))
+            return result[0][0] if result else 0.0
+        except Exception as e:
+            print(f"Erro ao obter receita do período: {e}")
+            return 0.0
+    
+    def contar_vendas_periodo(self, data_inicio, data_fim):
+        """Conta número de vendas em um período"""
+        try:
+            def converter_data(data_str):
+                partes = data_str.split('/')
+                if len(partes) == 3:
+                    return f"{partes[2]}-{partes[1].zfill(2)}-{partes[0].zfill(2)}"
+                return data_str
+            
+            data_inicio_sql = converter_data(data_inicio)
+            data_fim_sql = converter_data(data_fim)
+            
+            query = """
+                SELECT COUNT(*) 
+                FROM historico_vendas 
+                WHERE DATE(SUBSTR(data_hora, 7, 4) || '-' || 
+                          SUBSTR(data_hora, 4, 2) || '-' || 
+                          SUBSTR(data_hora, 1, 2)) 
+                BETWEEN ? AND ?
+            """
+            result = self.execute_query(query, (data_inicio_sql, data_fim_sql))
+            return result[0][0] if result else 0
+        except Exception as e:
+            print(f"Erro ao contar vendas do período: {e}")
+            return 0
+    
+    def obter_produto_mais_vendido(self):
+        """Obtém o produto mais vendido do dia atual"""
+        try:
+            hoje = datetime.now().strftime("%d/%m/%Y")
+            query = """
+                SELECT produto, SUM(quantidade) as total_vendido
+                FROM historico_vendas 
+                WHERE SUBSTR(data_hora, 1, 10) = ?
+                GROUP BY produto 
+                ORDER BY total_vendido DESC 
+                LIMIT 1
+            """
+            result = self.execute_query(query, (hoje,))
+            return result[0][0] if result else "Nenhum"
+        except Exception as e:
+            print(f"Erro ao obter produto mais vendido: {e}")
+            return "Erro"
+    
+    def obter_valor_total_estoque(self):
+        """Calcula valor total do estoque atual"""
+        try:
+            query = "SELECT COALESCE(SUM(quantidade * preco), 0) FROM estoque"
+            result = self.execute_query(query)
+            return result[0][0] if result else 0.0
+        except Exception as e:
+            print(f"Erro ao calcular valor do estoque: {e}")
+            return 0.0
+    
+    def contar_produtos_estoque_baixo(self, limite=5):
+        """Conta produtos com estoque abaixo do limite"""
+        try:
+            query = "SELECT COUNT(*) FROM estoque WHERE quantidade < ?"
+            result = self.execute_query(query, (limite,))
+            return result[0][0] if result else 0
+        except Exception as e:
+            print(f"Erro ao contar produtos com estoque baixo: {e}")
+            return 0
+    
+    def obter_vendas_ultimos_dias(self, dias=7):
+        """Obtém dados de vendas dos últimos X dias"""
+        try:
+            query = """
+                SELECT 
+                    SUBSTR(data_hora, 1, 10) as data,
+                    COALESCE(SUM(valor_total), 0) as receita,
+                    COALESCE(SUM(quantidade), 0) as quantidade_total
+                FROM historico_vendas 
+                GROUP BY SUBSTR(data_hora, 1, 10)
+                ORDER BY DATE(SUBSTR(data_hora, 7, 4) || '-' || 
+                            SUBSTR(data_hora, 4, 2) || '-' || 
+                            SUBSTR(data_hora, 1, 2)) DESC
+                LIMIT ?
+            """
+            result = self.execute_query(query, (dias,))
+            return result[::-1]  # Inverter para ordem cronológica
+        except Exception as e:
+            print(f"Erro ao obter vendas dos últimos dias: {e}")
+            return []
+    
+    def obter_top_produtos_receita(self, limite=10):
+        """Obtém top produtos por receita total"""
+        try:
+            query = """
+                SELECT 
+                    produto,
+                    COALESCE(SUM(valor_total), 0) as receita_total,
+                    COALESCE(SUM(quantidade), 0) as quantidade_total
+                FROM historico_vendas 
+                GROUP BY produto 
+                ORDER BY receita_total DESC 
+                LIMIT ?
+            """
+            result = self.execute_query(query, (limite,))
+            return result
+        except Exception as e:
+            print(f"Erro ao obter top produtos por receita: {e}")
+            return []
+    
+    def obter_vendas_por_horario(self):
+        """Obtém análise de vendas por horário do dia"""
+        try:
+            query = """
+                SELECT 
+                    CAST(SUBSTR(data_hora, 12, 2) AS INTEGER) as hora,
+                    COALESCE(SUM(valor_total), 0) as receita_hora
+                FROM historico_vendas 
+                WHERE LENGTH(data_hora) >= 13
+                GROUP BY CAST(SUBSTR(data_hora, 12, 2) AS INTEGER)
+                ORDER BY hora
+            """
+            result = self.execute_query(query)
+            return result
+        except Exception as e:
+            print(f"Erro ao obter vendas por horário: {e}")
+            return []

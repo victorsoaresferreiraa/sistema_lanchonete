@@ -9,7 +9,7 @@ import os
 import tkinter as tk
 from tkinter import ttk, messagebox
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timedelta
 import subprocess
 
 def verificar_dependencias():
@@ -69,10 +69,44 @@ class DatabaseManager:
                 )
             """)
             
-            # Verificar se coluna total existe, se não existir, adicionar
+            # Verificar e corrigir estrutura da tabela
             cursor.execute("PRAGMA table_info(historico_vendas)")
             columns = [column[1] for column in cursor.fetchall()]
-            if 'total' not in columns:
+            
+            # Se não tem data_venda, recriar tabela
+            if 'data_venda' not in columns and columns:
+                print("🔧 Corrigindo estrutura da tabela historico_vendas...")
+                cursor.execute("DROP TABLE IF EXISTS historico_vendas_old")
+                cursor.execute("ALTER TABLE historico_vendas RENAME TO historico_vendas_old")
+                
+                # Recriar com estrutura correta
+                cursor.execute("""
+                    CREATE TABLE historico_vendas (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        produto TEXT NOT NULL,
+                        quantidade INTEGER NOT NULL,
+                        preco_unitario REAL NOT NULL,
+                        total REAL NOT NULL,
+                        data_venda TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+                
+                # Migrar dados se existirem
+                try:
+                    cursor.execute("""
+                        INSERT INTO historico_vendas (produto, quantidade, preco_unitario, total)
+                        SELECT produto, quantidade, 
+                               COALESCE(preco_unitario, 0.0),
+                               COALESCE(total, quantidade * COALESCE(preco_unitario, 0.0))
+                        FROM historico_vendas_old
+                    """)
+                    cursor.execute("DROP TABLE historico_vendas_old")
+                    print("✓ Dados migrados com sucesso")
+                except:
+                    print("ℹ️ Tabela criada limpa")
+            
+            # Verificar se coluna total existe
+            elif 'total' not in columns:
                 cursor.execute("ALTER TABLE historico_vendas ADD COLUMN total REAL DEFAULT 0.0")
                 print("✓ Coluna 'total' adicionada à tabela historico_vendas")
             
@@ -221,6 +255,8 @@ class MainWindow:
     def abrir_vendas(self):
         """Abrir janela de vendas"""
         VendasWindow(self.root, self.db)
+    
+
     
     def abrir_contas_abertas(self):
         """Abrir janela de contas em aberto"""
@@ -986,105 +1022,354 @@ class EstoqueWindow:
             messagebox.showerror("Erro", f"Erro ao adicionar produtos exemplo: {e}")
 
 class VendasWindow:
-    """Janela de registro de vendas"""
+    """Janela de registro de vendas com carrinho de múltiplos produtos"""
     
     def __init__(self, parent, db):
         self.parent = parent
         self.db = db
         
         self.window = tk.Toplevel(parent)
-        self.window.title("💰 Registrar Venda")
-        self.window.geometry("700x500")
+        self.window.title("💰 Caixa - Sistema de Vendas [F1=Ajuda | F2=À Vista | F3=Fiado | ESC=Fechar]")
+        self.window.geometry("1000x650")
         self.window.transient(parent)
         self.window.grab_set()
         centralizar_janela(self.window)
         
         # Variáveis para os campos
         self.produto_var = tk.StringVar()
-        self.quantidade_var = tk.StringVar()
+        self.quantidade_var = tk.StringVar(value="1")
         self.preco_var = tk.StringVar()
+        self.cliente_nome_var = tk.StringVar()
+        
+        # Carrinho de compras
+        self.carrinho = []
+        self.total_geral = 0.0
         
         self.setup_ui()
         self.carregar_produtos()
+        
+        # Configurar atalhos APÓS criar interface
+        self.configurar_atalhos()
+    
+    def configurar_atalhos(self):
+        """Configurar atalhos de teclado para facilitar o uso"""
+        # Atalhos principais
+        self.window.bind('<F1>', self.mostrar_ajuda)
+        self.window.bind('<F2>', lambda e: self.finalizar_a_vista())
+        self.window.bind('<F3>', lambda e: self.finalizar_fiado())
+        self.window.bind('<F4>', lambda e: self.limpar_carrinho())
+        self.window.bind('<F5>', lambda e: self.limpar_campos_rapido())
+        self.window.bind('<F10>', lambda e: self.adicionar_produto())
+        self.window.bind('<Escape>', lambda e: self.window.destroy())
+        
+        # Atalhos Ctrl
+        self.window.bind('<Control-a>', lambda e: self.adicionar_produto())
+        self.window.bind('<Control-l>', lambda e: self.limpar_campos_rapido())
+        self.window.bind('<Control-d>', lambda e: self.remover_item())
+        self.window.bind('<Control-1>', lambda e: self.finalizar_a_vista())
+        self.window.bind('<Control-2>', lambda e: self.finalizar_fiado())
+        
+        # Enter para adicionar produto
+        self.window.bind('<Return>', lambda e: self.adicionar_produto())
+        self.window.bind('<KP_Enter>', lambda e: self.adicionar_produto())
+        
+        # Delete para remover item
+        self.window.bind('<Delete>', lambda e: self.remover_item())
+        
+        # Focus automático no produto combo (com verificação)
+        self.window.after(100, self.focar_produto_combo)
+        
+        # Configurar navegação com Tab
+        self.configurar_navegacao_teclado()
+    
+    def focar_produto_combo(self):
+        """Focar no combo de produto se existir"""
+        try:
+            if hasattr(self, 'produto_combo'):
+                self.produto_combo.focus()
+        except:
+            pass
+    
+    def configurar_navegacao_teclado(self):
+        """Configurar ordem de navegação com Tab"""
+        # Aplicar após widgets serem criados
+        self.window.after(200, self.aplicar_navegacao_avancada)
+    
+    def aplicar_navegacao_avancada(self):
+        """Aplicar navegação avançada após widgets criados"""
+        # Encontrar e configurar campos de entrada
+        for widget in self.window.winfo_children():
+            self.configurar_widget_navegacao(widget)
+    
+    def configurar_widget_navegacao(self, widget):
+        """Configurar navegação para um widget recursivamente"""
+        try:
+            # Se é um Entry, adicionar comportamento especial
+            if isinstance(widget, ttk.Entry):
+                # Selecionar tudo quando receber foco
+                widget.bind('<FocusIn>', lambda e: e.widget.select_range(0, 'end'))
+                # Enter avança para próximo campo ou executa ação
+                widget.bind('<Return>', self.processar_enter_campo)
+            
+            # Configurar filhos recursivamente
+            for child in widget.winfo_children():
+                self.configurar_widget_navegacao(child)
+        except:
+            pass
+    
+    def processar_enter_campo(self, event):
+        """Processar Enter em campos de entrada"""
+        widget = event.widget
+        
+        # Se todos os campos estão preenchidos, adicionar produto
+        if (self.produto_var.get() and 
+            self.quantidade_var.get() and 
+            self.preco_var.get()):
+            self.adicionar_produto()
+            return "break"
+        
+        # Senão, ir para próximo campo
+        widget.tk_focusNext().focus()
+        return "break"
+    
+    def mostrar_ajuda(self, event=None):
+        """Mostrar ajuda com atalhos de teclado"""
+        ajuda_texto = """
+🚀 ATALHOS DE TECLADO - CAIXA RÁPIDO
+
+📋 OPERAÇÕES PRINCIPAIS:
+F1  - Mostrar esta ajuda
+F2  - Finalizar venda À VISTA
+F3  - Finalizar venda FIADO  
+F4  - Limpar carrinho
+F5  - Limpar campos
+F10 - Adicionar produto ao carrinho
+ESC - Fechar janela
+
+⌨️ ATALHOS RÁPIDOS:
+Enter      - Adicionar produto
+Delete     - Remover item selecionado
+Ctrl+A     - Adicionar produto  
+Ctrl+L     - Limpar campos
+Ctrl+D     - Remover item
+Ctrl+1     - Finalizar à vista
+Ctrl+2     - Finalizar fiado
+
+💡 DICAS DE USO:
+• Selecione produto → preço aparece automaticamente
+• Digite quantidade → total calcula sozinho
+• Use Enter para adicionar rapidamente
+• Use F2/F3 para finalizar sem usar mouse
+
+👥 ACESSIBILIDADE:
+• Textos grandes e contrastados
+• Atalhos simples de memorizar
+• Feedback sonoro nas ações
+• Interface limpa e organizada
+        """
+        
+        help_window = tk.Toplevel(self.window)
+        help_window.title("📚 Ajuda - Atalhos de Teclado")
+        help_window.geometry("600x500")
+        help_window.transient(self.window)
+        centralizar_janela(help_window)
+        
+        # Aguardar janela ser visível antes de grab_set
+        help_window.after(100, lambda: help_window.grab_set())
+        
+        text_widget = tk.Text(help_window, wrap=tk.WORD, font=("Arial", 11), 
+                             bg="#f8f9fa", padx=20, pady=20)
+        text_widget.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        text_widget.insert("1.0", ajuda_texto)
+        text_widget.config(state=tk.DISABLED)
+        
+        # Botão fechar
+        ttk.Button(help_window, text="❌ Fechar (ESC)", 
+                  command=help_window.destroy).pack(pady=10)
+        help_window.bind('<Escape>', lambda e: help_window.destroy())
+        help_window.focus()
     
     def setup_ui(self):
-        """Configurar interface de vendas"""
-        # Frame principal
-        main_frame = ttk.Frame(self.window, padding="20")
+        """Configurar interface de vendas com carrinho otimizada"""
+        main_frame = ttk.Frame(self.window, padding="12")
         main_frame.pack(fill=tk.BOTH, expand=True)
         
-        # Título
-        title = ttk.Label(main_frame, text="💰 Registrar Nova Venda", font=("Arial", 16, "bold"))
-        title.pack(pady=(0, 20))
+        # Cabeçalho simplificado
+        header_frame = ttk.Frame(main_frame)
+        header_frame.pack(fill=tk.X, pady=(0, 12))
         
-        # Frame do formulário
-        form_frame = ttk.LabelFrame(main_frame, text="Dados da Venda", padding="15")
-        form_frame.pack(fill=tk.X, pady=(0, 20))
+        # Título grande e cliente na mesma linha
+        ttk.Label(header_frame, text="💰 CAIXA", font=("Arial", 22, "bold"), foreground="#2E8B57").pack(side=tk.LEFT)
         
-        # Campo Produto
-        ttk.Label(form_frame, text="Produto:").grid(row=0, column=0, sticky="w", pady=5)
-        self.produto_combo = ttk.Combobox(form_frame, textvariable=self.produto_var, width=30)
-        self.produto_combo.grid(row=0, column=1, padx=(10, 0), pady=5, sticky="ew")
+        # Botão ajuda visível
+        ttk.Button(header_frame, text="❓ AJUDA (F1)", command=self.mostrar_ajuda, width=15).pack(side=tk.LEFT, padx=(20, 0))
         
-        # Campo Quantidade
-        ttk.Label(form_frame, text="Quantidade:").grid(row=1, column=0, sticky="w", pady=5)
-        quantidade_entry = ttk.Entry(form_frame, textvariable=self.quantidade_var, width=15)
-        quantidade_entry.grid(row=1, column=1, padx=(10, 0), pady=5, sticky="w")
+        # Cliente no canto direito com fonte maior
+        cliente_frame = ttk.Frame(header_frame)
+        cliente_frame.pack(side=tk.RIGHT)
+        ttk.Label(cliente_frame, text="Cliente:", font=("Arial", 12, "bold")).pack(side=tk.LEFT)
+        cliente_entry = ttk.Entry(cliente_frame, textvariable=self.cliente_nome_var, width=25, font=("Arial", 12))
+        cliente_entry.pack(side=tk.LEFT, padx=(5, 0))
         
-        # Campo Preço Unitário
-        ttk.Label(form_frame, text="Preço Unitário (R$):").grid(row=2, column=0, sticky="w", pady=5)
-        preco_entry = ttk.Entry(form_frame, textvariable=self.preco_var, width=15)
-        preco_entry.grid(row=2, column=1, padx=(10, 0), pady=5, sticky="w")
+        # Separador visual
+        separator = ttk.Separator(main_frame, orient='horizontal')
+        separator.pack(fill=tk.X, pady=(0, 12))
         
-        # Total calculado
-        ttk.Label(form_frame, text="Total:").grid(row=3, column=0, sticky="w", pady=5)
-        self.total_label = ttk.Label(form_frame, text="R$ 0,00", font=("Arial", 12, "bold"), foreground="green")
-        self.total_label.grid(row=3, column=1, padx=(10, 0), pady=5, sticky="w")
+        # Container principal otimizado
+        content_frame = ttk.Frame(main_frame)
+        content_frame.pack(fill=tk.BOTH, expand=True)
         
-        # Configurar grid
-        form_frame.columnconfigure(1, weight=1)
+        # Painel esquerdo - Entrada de produtos (mais compacto)
+        left_panel = ttk.LabelFrame(content_frame, text="📦 Adicionar Produto", padding="12")
+        left_panel.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 8))
+        left_panel.config(width=350)  # Largura fixa
         
-        # Binding para calcular total automaticamente
-        self.quantidade_var.trace('w', self.calcular_total)
-        self.preco_var.trace('w', self.calcular_total)
+        # Campos com fontes maiores para melhor visibilidade
+        ttk.Label(left_panel, text="Produto:", font=("Arial", 14, "bold")).grid(row=0, column=0, sticky="w", pady=(0, 8))
+        self.produto_combo = ttk.Combobox(left_panel, textvariable=self.produto_var, width=30, state="readonly", font=("Arial", 12))
+        self.produto_combo.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(0, 15))
+        self.produto_combo.bind('<<ComboboxSelected>>', self.produto_selecionado)
         
-        # Frame dos botões
-        btn_frame = ttk.Frame(main_frame)
-        btn_frame.pack(fill=tk.X, pady=10)
+        # Quantidade e preço com layout melhorado
+        qty_price_frame = ttk.Frame(left_panel)
+        qty_price_frame.grid(row=2, column=0, columnspan=2, sticky="ew", pady=(0, 15))
         
-        ttk.Button(btn_frame, text="💾 Venda à Vista", command=self.registrar_venda, width=18).pack(side=tk.LEFT, padx=(0, 10))
-        ttk.Button(btn_frame, text="📋 Venda Fiado", command=self.registrar_venda_fiado, width=18).pack(side=tk.LEFT, padx=(0, 10))
-        ttk.Button(btn_frame, text="🔄 Limpar", command=self.limpar_campos, width=15).pack(side=tk.LEFT, padx=(0, 10))
-        ttk.Button(btn_frame, text="❌ Fechar", command=self.window.destroy, width=15).pack(side=tk.RIGHT)
+        # Quantidade com fonte maior
+        ttk.Label(qty_price_frame, text="Quantidade:", font=("Arial", 12, "bold")).grid(row=0, column=0, sticky="w")
+        quantidade_entry = ttk.Entry(qty_price_frame, textvariable=self.quantidade_var, width=8, font=("Arial", 14))
+        quantidade_entry.grid(row=1, column=0, sticky="w", padx=(0, 15))
         
-        # Frame do histórico
-        history_frame = ttk.LabelFrame(main_frame, text="Vendas Recentes", padding="10")
-        history_frame.pack(fill=tk.BOTH, expand=True)
+        # Preço com fonte maior
+        ttk.Label(qty_price_frame, text="Preço (R$):", font=("Arial", 12, "bold")).grid(row=0, column=1, sticky="w")
+        preco_entry = ttk.Entry(qty_price_frame, textvariable=self.preco_var, width=12, font=("Arial", 14))
+        preco_entry.grid(row=1, column=1, sticky="w")
         
-        # Lista de vendas
-        self.vendas_tree = ttk.Treeview(history_frame, columns=("produto", "qtd", "preco", "total", "data"), show="headings", height=8)
+        # Total do item mais destacado
+        total_item_frame = ttk.Frame(left_panel)
+        total_item_frame.grid(row=3, column=0, columnspan=2, pady=(10, 20))
         
-        # Configurar colunas
-        self.vendas_tree.heading("produto", text="Produto")
-        self.vendas_tree.heading("qtd", text="Qtd")
-        self.vendas_tree.heading("preco", text="Preço Unit.")
-        self.vendas_tree.heading("total", text="Total")
-        self.vendas_tree.heading("data", text="Data/Hora")
+        ttk.Label(total_item_frame, text="TOTAL:", font=("Arial", 14, "bold")).pack(side=tk.LEFT)
+        self.total_item_label = ttk.Label(total_item_frame, text="R$ 0,00", 
+                                         font=("Arial", 18, "bold"), foreground="#FF6B35")
+        self.total_item_label.pack(side=tk.LEFT, padx=(10, 0))
         
-        self.vendas_tree.column("produto", width=200)
-        self.vendas_tree.column("qtd", width=60)
-        self.vendas_tree.column("preco", width=80)
-        self.vendas_tree.column("total", width=80)
-        self.vendas_tree.column("data", width=120)
+        # Botão adicionar muito grande e destacado
+        btn_adicionar = ttk.Button(left_panel, text="➕ ADICIONAR (Enter)", 
+                                  command=self.adicionar_produto, width=25)
+        btn_adicionar.grid(row=4, column=0, columnspan=2, pady=(0, 10), sticky="ew", ipady=8)
         
-        # Scrollbar para a lista
-        scrollbar = ttk.Scrollbar(history_frame, orient=tk.VERTICAL, command=self.vendas_tree.yview)
-        self.vendas_tree.configure(yscrollcommand=scrollbar.set)
+        # Botão limpar destacado
+        btn_limpar = ttk.Button(left_panel, text="🔄 Limpar (F5)", 
+                               command=self.limpar_campos_rapido, width=25)
+        btn_limpar.grid(row=5, column=0, columnspan=2, sticky="ew", ipady=5)
         
-        self.vendas_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        # Instruções simples
+        instrucoes = ttk.Label(left_panel, text="💡 Pressione F1 para ver todos os atalhos", 
+                              font=("Arial", 10), foreground="blue", cursor="hand2")
+        instrucoes.grid(row=6, column=0, columnspan=2, pady=(15, 0))
+        instrucoes.bind("<Button-1>", self.mostrar_ajuda)
         
-        self.carregar_vendas_recentes()
+        left_panel.columnconfigure(0, weight=1)
+        
+        # Binding para cálculos
+        self.quantidade_var.trace('w', self.calcular_total_item)
+        self.preco_var.trace('w', self.calcular_total_item)
+        
+        # Painel direito - Carrinho otimizado
+        right_panel = ttk.LabelFrame(content_frame, text="🛒 Carrinho de Compras", padding="12")
+        right_panel.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
+        
+        # Carrinho com fontes maiores
+        carrinho_frame = ttk.Frame(right_panel)
+        carrinho_frame.pack(fill=tk.BOTH, expand=True)
+        
+        carrinho_columns = ("Produto", "Qtd", "Preço", "Total")
+        self.carrinho_tree = ttk.Treeview(carrinho_frame, columns=carrinho_columns, show="headings", height=12)
+        
+        # Cabeçalhos com fontes maiores e mais espaço
+        self.carrinho_tree.heading("Produto", text="PRODUTO", anchor="w")
+        self.carrinho_tree.heading("Qtd", text="QTD", anchor="center")
+        self.carrinho_tree.heading("Preço", text="PREÇO", anchor="center")
+        self.carrinho_tree.heading("Total", text="TOTAL", anchor="center")
+        
+        # Colunas com altura de linha maior
+        self.carrinho_tree.column("Produto", width=240, anchor="w")
+        self.carrinho_tree.column("Qtd", width=70, anchor="center")
+        self.carrinho_tree.column("Preço", width=100, anchor="center")
+        self.carrinho_tree.column("Total", width=100, anchor="center")
+        
+        # Configurar altura das linhas para melhor legibilidade
+        style = ttk.Style()
+        style.configure("Treeview", rowheight=25)
+        style.configure("Treeview.Heading", font=("Arial", 11, "bold"))
+        
+        # Scrollbar
+        carrinho_scroll = ttk.Scrollbar(carrinho_frame, orient="vertical", command=self.carrinho_tree.yview)
+        self.carrinho_tree.configure(yscrollcommand=carrinho_scroll.set)
+        
+        self.carrinho_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        carrinho_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        # Botões do carrinho maiores e mais visíveis
+        carrinho_btn_frame = ttk.Frame(right_panel)
+        carrinho_btn_frame.pack(fill=tk.X, pady=(10, 0))
+        
+        ttk.Button(carrinho_btn_frame, text="🗑️ Remover (Del)", command=self.remover_item, width=15).pack(side=tk.LEFT, padx=(0, 8))
+        ttk.Button(carrinho_btn_frame, text="🧹 Limpar (F4)", command=self.limpar_carrinho, width=15).pack(side=tk.LEFT)
+        
+        # Contador de itens maior
+        self.contador_label = ttk.Label(carrinho_btn_frame, text="Carrinho vazio", font=("Arial", 11, "bold"), foreground="#666")
+        self.contador_label.pack(side=tk.RIGHT)
+        
+        # Rodapé com total e botões
+        footer_frame = ttk.Frame(main_frame)
+        footer_frame.pack(fill=tk.X, pady=(15, 0))
+        
+        # Separador
+        separator2 = ttk.Separator(footer_frame, orient='horizontal')
+        separator2.pack(fill=tk.X, pady=(0, 10))
+        
+        # Total e botões na mesma linha
+        footer_content = ttk.Frame(footer_frame)
+        footer_content.pack(fill=tk.X)
+        
+        # Total muito grande e super destacado
+        total_geral_frame = ttk.Frame(footer_content)
+        total_geral_frame.pack(side=tk.LEFT)
+        
+        ttk.Label(total_geral_frame, text="TOTAL:", font=("Arial", 20, "bold")).pack(side=tk.LEFT)
+        self.total_geral_label = ttk.Label(total_geral_frame, text="R$ 0,00", 
+                                          font=("Arial", 28, "bold"), foreground="#DC143C")
+        self.total_geral_label.pack(side=tk.LEFT, padx=(15, 0))
+        
+        # Botões de finalização muito grandes e destacados
+        btn_final_frame = ttk.Frame(footer_content)
+        btn_final_frame.pack(side=tk.RIGHT)
+        
+        # Botões com atalhos visíveis
+        btn_a_vista = ttk.Button(btn_final_frame, text="💳 À VISTA (F2)", command=self.finalizar_a_vista, width=18)
+        btn_a_vista.pack(side=tk.LEFT, padx=(0, 10), ipady=8)
+        
+        btn_fiado = ttk.Button(btn_final_frame, text="📋 FIADO (F3)", command=self.finalizar_fiado, width=18)
+        btn_fiado.pack(side=tk.LEFT, padx=(0, 10), ipady=8)
+        
+        btn_fechar = ttk.Button(btn_final_frame, text="❌ FECHAR (ESC)", command=self.window.destroy, width=15)
+        btn_fechar.pack(side=tk.LEFT, ipady=8)
+        
+        # Estilo para botões maiores
+        style.configure("Large.TButton", font=("Arial", 11, "bold"))
+    
+    def limpar_campos_rapido(self):
+        """Limpar apenas os campos de entrada"""
+        self.produto_combo.set("")
+        self.quantidade_var.set("1")
+        self.preco_var.set("")
+        self.total_item_label.config(text="R$ 0,00")
+        self.produto_combo.focus()
+        
+        # Feedback visual
+        self.window.title("💰 Caixa - Campos limpos")
+        self.window.after(1500, lambda: self.window.title("💰 Caixa - Sistema de Vendas [F1=Ajuda | F2=À Vista | F3=Fiado | ESC=Fechar]"))
     
     def carregar_produtos(self):
         """Carregar produtos do estoque"""
@@ -1104,119 +1389,316 @@ class VendasWindow:
         except Exception as e:
             messagebox.showerror("Erro", f"Erro ao carregar produtos: {e}")
     
-    def calcular_total(self, *args):
-        """Calcular total da venda"""
+    def produto_selecionado(self, event):
+        """Quando um produto é selecionado, preencher preço automaticamente"""
+        produto_info = self.produto_combo.get()
+        if " - R$ " in produto_info:
+            preco_str = produto_info.split(" - R$ ")[1]
+            self.preco_var.set(preco_str)
+    
+    def calcular_total_item(self, *args):
+        """Calcular total do item atual"""
         try:
             quantidade = float(self.quantidade_var.get() or 0)
             preco = float(self.preco_var.get() or 0)
             total = quantidade * preco
-            self.total_label.config(text=f"R$ {total:.2f}")
+            self.total_item_label.config(text=f"R$ {total:.2f}")
         except ValueError:
-            self.total_label.config(text="R$ 0,00")
+            self.total_item_label.config(text="R$ 0,00")
     
-    def registrar_venda(self):
-        """Registrar nova venda"""
+    def adicionar_produto(self):
+        """Adicionar produto ao carrinho"""
         try:
-            # Validar campos
-            produto_selecionado = self.produto_var.get()
-            if not produto_selecionado or produto_selecionado == "Nenhum produto cadastrado":
-                messagebox.showerror("Erro", "Selecione um produto")
-                return
-            
+            produto_info = self.produto_combo.get()
             quantidade = int(self.quantidade_var.get())
-            preco = float(self.preco_var.get())
+            preco = float(self.preco_var.get().replace(',', '.'))
             
+            if not produto_info or produto_info == "Nenhum produto cadastrado":
+                messagebox.showerror("Erro", "Selecione um produto válido")
+                return
+                
             if quantidade <= 0 or preco <= 0:
                 messagebox.showerror("Erro", "Quantidade e preço devem ser maiores que zero")
                 return
             
-            # Extrair nome do produto
-            produto = produto_selecionado.split(" - R$")[0]
-            total = quantidade * preco
+            produto_nome = produto_info.split(" - R$ ")[0]
+            total_item = quantidade * preco
             
-            # Registrar no banco
+            # Adicionar ao carrinho
+            self.carrinho.append({
+                'produto': produto_nome,
+                'quantidade': quantidade,
+                'preco_unitario': preco,
+                'total': total_item
+            })
+            
+            # Atualizar interface
+            self.atualizar_carrinho()
+            
+            # Limpar campos e focar no próximo produto
+            self.limpar_campos_rapido()
+            
+            # Feedback sonoro e visual
+            try:
+                self.window.bell()  # Som de confirmação
+                self.window.title("💰 Caixa - Produto adicionado!")
+                # Resetar título após 2 segundos
+                self.window.after(2000, lambda: self.window.title("💰 Caixa - Sistema de Vendas [F1=Ajuda | F2=À Vista | F3=Fiado | ESC=Fechar]"))
+            except:
+                pass
+            
+        except ValueError:
+            messagebox.showerror("Erro", "Quantidade deve ser um número inteiro e preço um número válido")
+        except Exception as e:
+            messagebox.showerror("Erro", f"Erro ao adicionar produto: {e}")
+    
+    def atualizar_carrinho(self):
+        """Atualizar exibição do carrinho"""
+        # Limpar treeview
+        for item in self.carrinho_tree.get_children():
+            self.carrinho_tree.delete(item)
+        
+        # Adicionar itens
+        self.total_geral = 0.0
+        for item in self.carrinho:
+            self.carrinho_tree.insert("", "end", values=(
+                item['produto'],
+                item['quantidade'],
+                f"R$ {item['preco_unitario']:.2f}",
+                f"R$ {item['total']:.2f}"
+            ))
+            self.total_geral += item['total']
+        
+        # Atualizar total geral e contador
+        self.total_geral_label.config(text=f"R$ {self.total_geral:.2f}")
+        
+        # Atualizar contador de itens
+        qtd_total = sum(item['quantidade'] for item in self.carrinho)
+        if len(self.carrinho) == 0:
+            self.contador_label.config(text="Carrinho vazio")
+        elif len(self.carrinho) == 1:
+            self.contador_label.config(text=f"{qtd_total} item")
+        else:
+            self.contador_label.config(text=f"{qtd_total} itens • {len(self.carrinho)} produtos")
+    
+    def remover_item(self):
+        """Remover item selecionado do carrinho"""
+        selected = self.carrinho_tree.selection()
+        if not selected:
+            messagebox.showwarning("Aviso", "Selecione um item para remover")
+            return
+        
+        # Obter índice do item
+        index = self.carrinho_tree.index(selected[0])
+        
+        # Remover do carrinho
+        if 0 <= index < len(self.carrinho):
+            item_removido = self.carrinho.pop(index)
+            self.atualizar_carrinho()
+            # Feedback visual mais sutil
+            self.window.title(f"💰 Caixa - '{item_removido['produto']}' removido")
+    
+    def limpar_carrinho(self):
+        """Limpar todo o carrinho"""
+        if self.carrinho:
+            qtd_itens = len(self.carrinho)
+            if messagebox.askyesno("Confirmar Limpeza", f"Limpar {qtd_itens} produto(s) do carrinho?"):
+                self.carrinho.clear()
+                self.atualizar_carrinho()
+                self.cliente_nome_var.set("")
+                self.window.title("💰 Caixa - Carrinho limpo")
+    
+    def finalizar_a_vista(self):
+        """Finalizar vendas à vista"""
+        if not self.carrinho:
+            messagebox.showwarning("Aviso", "Carrinho está vazio")
+            return
+        
+        cliente = self.cliente_nome_var.get().strip() or "Cliente Anônimo"
+        
+        if messagebox.askyesno("Confirmar Venda", 
+                             f"Finalizar venda à vista?\n\n"
+                             f"Cliente: {cliente}\n"
+                             f"Itens: {len(self.carrinho)} produtos\n"
+                             f"Total: R$ {self.total_geral:.2f}"):
+            
+            try:
+                # Registrar todas as vendas
+                with sqlite3.connect(self.db.db_path) as conn:
+                    cursor = conn.cursor()
+                    for item in self.carrinho:
+                        cursor.execute("""
+                            INSERT INTO historico_vendas (produto, quantidade, preco_unitario, total)
+                            VALUES (?, ?, ?, ?)
+                        """, (item['produto'], item['quantidade'], item['preco_unitario'], item['total']))
+                    conn.commit()
+                
+                # Tocar som de sucesso
+                try:
+                    for _ in range(2):
+                        self.window.bell()
+                        self.window.after(100)
+                except:
+                    pass
+                
+                messagebox.showinfo("✅ Venda Finalizada!", 
+                                  f"Venda à vista concluída com sucesso!\n\n"
+                                  f"Cliente: {cliente}\n"
+                                  f"Produtos: {len(self.carrinho)} itens\n"
+                                  f"Total pago: R$ {self.total_geral:.2f}\n\n"
+                                  f"Obrigado pela preferência!")
+                
+                # Limpar carrinho
+                self.carrinho.clear()
+                self.atualizar_carrinho()
+                self.cliente_nome_var.set("")
+                
+            except Exception as e:
+                messagebox.showerror("Erro", f"Erro ao finalizar venda: {e}")
+    
+    def finalizar_fiado(self):
+        """Finalizar vendas fiado"""
+        if not self.carrinho:
+            messagebox.showwarning("Aviso", "Carrinho está vazio")
+            return
+        
+        cliente = self.cliente_nome_var.get().strip()
+        if not cliente:
+            messagebox.showerror("Erro", "Nome do cliente é obrigatório para vendas fiado")
+            return
+        
+        # Abrir janela de dados do fiado
+        VendaFiadoCarrinhoWindow(self.window, self.db, cliente, self.carrinho, self.total_geral, self)
+
+
+class VendaFiadoCarrinhoWindow:
+    """Janela para dados adicionais da venda fiado do carrinho"""
+    
+    def __init__(self, parent, db, cliente, carrinho, total, vendas_window):
+        self.parent = parent
+        self.db = db
+        self.cliente = cliente
+        self.carrinho = carrinho
+        self.total = total
+        self.vendas_window = vendas_window
+        
+        self.window = tk.Toplevel(parent)
+        self.window.title("📋 Finalizar Venda Fiado")
+        self.window.geometry("550x450")
+        self.window.transient(parent)
+        self.window.grab_set()
+        centralizar_janela(self.window)
+        
+        # Variáveis
+        self.telefone_var = tk.StringVar()
+        self.data_vencimento_var = tk.StringVar()
+        self.observacoes_var = tk.StringVar()
+        
+        # Data padrão (30 dias)
+        data_venc = (datetime.now() + timedelta(days=30)).strftime("%d/%m/%Y")
+        self.data_vencimento_var.set(data_venc)
+        
+        self.setup_ui()
+    
+    def setup_ui(self):
+        """Configurar interface"""
+        main_frame = ttk.Frame(self.window, padding="20")
+        main_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # Título
+        title = ttk.Label(main_frame, text="📋 Finalizar Venda Fiado", font=("Arial", 16, "bold"))
+        title.pack(pady=(0, 15))
+        
+        # Resumo da venda
+        resumo_frame = ttk.LabelFrame(main_frame, text="Resumo da Venda", padding="10")
+        resumo_frame.pack(fill=tk.X, pady=(0, 15))
+        
+        ttk.Label(resumo_frame, text=f"Cliente: {self.cliente}", font=("Arial", 11, "bold")).pack(anchor="w")
+        ttk.Label(resumo_frame, text=f"Quantidade de itens: {len(self.carrinho)} produtos").pack(anchor="w")
+        
+        # Lista de produtos
+        produtos_text = ", ".join([f"{item['quantidade']}x {item['produto']}" for item in self.carrinho[:3]])
+        if len(self.carrinho) > 3:
+            produtos_text += f" e mais {len(self.carrinho) - 3} itens..."
+        ttk.Label(resumo_frame, text=f"Produtos: {produtos_text}").pack(anchor="w")
+        
+        ttk.Label(resumo_frame, text=f"Total: R$ {self.total:.2f}", 
+                 font=("Arial", 12, "bold"), foreground="red").pack(anchor="w")
+        
+        # Dados adicionais
+        dados_frame = ttk.LabelFrame(main_frame, text="Dados do Cliente", padding="15")
+        dados_frame.pack(fill=tk.X, pady=(0, 15))
+        
+        # Telefone
+        ttk.Label(dados_frame, text="Telefone:").grid(row=0, column=0, sticky="w", pady=8)
+        telefone_entry = ttk.Entry(dados_frame, textvariable=self.telefone_var, width=20)
+        telefone_entry.grid(row=0, column=1, padx=(10, 0), pady=8, sticky="ew")
+        telefone_entry.focus()
+        
+        # Data vencimento
+        ttk.Label(dados_frame, text="Data de Vencimento:").grid(row=1, column=0, sticky="w", pady=8)
+        venc_entry = ttk.Entry(dados_frame, textvariable=self.data_vencimento_var, width=15)
+        venc_entry.grid(row=1, column=1, padx=(10, 0), pady=8, sticky="w")
+        
+        # Observações
+        ttk.Label(dados_frame, text="Observações:").grid(row=2, column=0, sticky="w", pady=8)
+        obs_entry = ttk.Entry(dados_frame, textvariable=self.observacoes_var, width=35)
+        obs_entry.grid(row=2, column=1, padx=(10, 0), pady=8, sticky="ew")
+        
+        dados_frame.columnconfigure(1, weight=1)
+        
+        # Botões
+        btn_frame = ttk.Frame(main_frame)
+        btn_frame.pack(fill=tk.X, pady=(15, 0))
+        
+        ttk.Button(btn_frame, text="💾 Confirmar Venda Fiado", 
+                  command=self.confirmar_fiado, width=20).pack(side=tk.LEFT, padx=(0, 10))
+        ttk.Button(btn_frame, text="❌ Cancelar", 
+                  command=self.window.destroy, width=15).pack(side=tk.RIGHT)
+    
+    def confirmar_fiado(self):
+        """Confirmar venda fiado do carrinho"""
+        try:
+            telefone = self.telefone_var.get().strip()
+            data_venc = self.data_vencimento_var.get().strip()
+            observacoes = self.observacoes_var.get().strip()
+            
+            # Registrar na tabela de contas abertas
             with sqlite3.connect(self.db.db_path) as conn:
                 cursor = conn.cursor()
-                cursor.execute("""
-                    INSERT INTO historico_vendas (produto, quantidade, preco_unitario, total)
-                    VALUES (?, ?, ?, ?)
-                """, (produto, quantidade, preco, total))
+                for item in self.carrinho:
+                    cursor.execute("""
+                        INSERT INTO contas_abertas 
+                        (cliente_nome, cliente_telefone, produto, quantidade, preco_unitario, total, data_vencimento, observacoes)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """, (self.cliente, telefone, item['produto'], item['quantidade'], 
+                          item['preco_unitario'], item['total'], data_venc, observacoes))
                 conn.commit()
             
-            messagebox.showinfo("Sucesso", f"Venda registrada com sucesso!\nTotal: R$ {total:.2f}")
-            
-            # Limpar campos e atualizar lista
-            self.limpar_campos()
-            self.carregar_vendas_recentes()
-            
-        except ValueError:
-            messagebox.showerror("Erro", "Quantidade deve ser um número inteiro e preço um número válido")
-        except Exception as e:
-            messagebox.showerror("Erro", f"Erro ao registrar venda: {e}")
-    
-    def registrar_venda_fiado(self):
-        """Registrar venda fiado (conta em aberto)"""
-        try:
-            # Validar campos básicos
-            produto_selecionado = self.produto_var.get()
-            if not produto_selecionado or produto_selecionado == "Nenhum produto cadastrado":
-                messagebox.showerror("Erro", "Selecione um produto")
-                return
-            
-            quantidade = int(self.quantidade_var.get())
-            preco = float(self.preco_var.get())
-            
-            if quantidade <= 0 or preco <= 0:
-                messagebox.showerror("Erro", "Quantidade e preço devem ser maiores que zero")
-                return
-            
-            # Abrir janela para dados do cliente
-            VendaFiadoWindow(self.parent, self.db, produto_selecionado, quantidade, preco)
-            
-        except ValueError:
-            messagebox.showerror("Erro", "Quantidade deve ser um número inteiro e preço um número válido")
-        except Exception as e:
-            messagebox.showerror("Erro", f"Erro ao preparar venda fiado: {e}")
-    
-    def limpar_campos(self):
-        """Limpar todos os campos"""
-        self.produto_var.set("")
-        self.quantidade_var.set("")
-        self.preco_var.set("")
-        self.total_label.config(text="R$ 0,00")
-    
-    def carregar_vendas_recentes(self):
-        """Carregar vendas recentes na lista"""
-        # Limpar lista atual
-        for item in self.vendas_tree.get_children():
-            self.vendas_tree.delete(item)
-        
-        try:
-            with sqlite3.connect(self.db.db_path) as conn:
-                cursor = conn.cursor()
-                cursor.execute("""
-                    SELECT produto, quantidade, preco_unitario, total, data_venda
-                    FROM historico_vendas
-                    ORDER BY data_venda DESC
-                    LIMIT 20
-                """)
-                vendas = cursor.fetchall()
+            # Som de confirmação fiado
+            try:
+                self.window.bell()
+            except:
+                pass
                 
-                for venda in vendas:
-                    produto, qtd, preco, total, data = venda
-                    # Formatar data
-                    data_formatada = datetime.fromisoformat(data).strftime("%d/%m %H:%M")
-                    
-                    self.vendas_tree.insert("", "end", values=(
-                        produto,
-                        qtd,
-                        f"R$ {preco:.2f}",
-                        f"R$ {total:.2f}",
-                        data_formatada
-                    ))
-                    
+            messagebox.showinfo("📋 Venda Fiado Registrada!", 
+                              f"Conta registrada com sucesso!\n\n"
+                              f"Cliente: {self.cliente}\n"
+                              f"Telefone: {telefone or 'Não informado'}\n"
+                              f"Produtos: {len(self.carrinho)} itens\n"
+                              f"Valor total: R$ {self.total:.2f}\n"
+                              f"Vencimento: {data_venc}\n\n"
+                              f"Lembre o cliente da data de pagamento!")
+            
+            # Limpar carrinho da janela principal
+            self.vendas_window.carrinho.clear()
+            self.vendas_window.atualizar_carrinho()
+            self.vendas_window.cliente_nome_var.set("")
+            
+            self.window.destroy()
+            
         except Exception as e:
-            print(f"Erro ao carregar vendas: {e}")
+            messagebox.showerror("Erro", f"Erro ao registrar venda fiado: {e}")
 
 class VendaFiadoWindow:
     """Janela para registrar venda fiado"""
@@ -2553,6 +3035,9 @@ class BackupWindow:
             
         except Exception as e:
             messagebox.showerror("Erro", f"Erro ao verificar integridade: {e}")
+
+
+
 
 def main():
     """Função principal"""

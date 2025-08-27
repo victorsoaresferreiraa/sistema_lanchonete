@@ -1,9 +1,10 @@
-modules = ["python-3.11"]
+modules = ["python-3.11", "postgresql-16"]
 [agent]
 expertMode = true
 
 [nix]
 channel = "stable-25_05"
+packages = ["cairo", "chrpath", "ffmpeg-full", "freetype", "ghostscript", "glibcLocales", "gobject-introspection", "gtk3", "lcms2", "libimagequant", "libjpeg", "libtiff", "libwebp", "libxcrypt", "openjpeg", "pkg-config", "python312Full", "python312Packages.tkinter", "qhull", "scons", "tcl", "tigervnc", "tk", "xorg.xhost", "xorg.xinit", "xorg.xorgserver", "zlib"]
 
 [workflows]
 runButton = "Project"
@@ -15,15 +16,60 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "Snack Bar Management System"
+args = "Teste Dashboard"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Sistema Funcional"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Sistema Lanchonete Final"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Sistema Console Teste"
 
 [[workflows.workflow]]
-name = "Snack Bar Management System"
+name = "Teste Dashboard"
 author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python test_simples.py"
 
 [workflows.workflow.metadata]
 outputType = "vnc"
 
+[[workflows.workflow]]
+name = "Sistema Funcional"
+author = "agent"
+
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "pip install requests && python main.py"
+args = "python main_funcional.py"
+
+[workflows.workflow.metadata]
+outputType = "vnc"
+
+[[workflows.workflow]]
+name = "Sistema Lanchonete Final"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python main_funcional.py"
+
+[workflows.workflow.metadata]
+outputType = "vnc"
+
+[[workflows.workflow]]
+name = "Sistema Console Teste"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python test_simples.py"
+
+[workflows.workflow.metadata]
+outputType = "console"

@@ -1,0 +1,85 @@
+ git status 
+On branch main
+Your branch is up to date with 'origin/main'.
+
+Changes to be committed:
+  (use "git restore --staged <file>..." to unstage)
+        new file:   .local/state/replit/agent/.agent_state_676b33d9e069bb9722451072f27bd906e9fc3294.bin
+        new file:   .local/state/replit/agent/.agent_state_6f38220c733e4a6471e5042e6d58465675812bee.bin
+        new file:   .local/state/replit/agent/.agent_state_8dfc062aeb49440ca40213f4857e5b2a827542de.bin
+        new file:   .local/state/replit/agent/.agent_state_d21739109e3796c06b9a2674a06907638c26460f.bin
+        new file:   .local/state/replit/agent/.agent_state_d7a8e89f6ba3b0017777cd193ad215250c97211f.bin
+        new file:   .local/state/replit/agent/.agent_state_main.bin
+        new file:   .local/state/replit/agent/.latest.json
+        new file:   .local/state/replit/agent/rapid_build_started
+        new file:   .local/state/replit/agent/repl_state.bin
+        new file:   python_installer/python-3.8.0.exe
+
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+        modified:   .gitignore
+        modified:   README.md
+        modified:   pyproject.toml
+
+  (use "git add <file>..." to include in what will be committed)
+        LEIA_PRIMEIRO.md
+        SistemaLanchonete.spec
+        codigo_fonte/
+        documentacao/
+        ferramentas/
+        main_funcional.py
+        protecao_comercial/
+        requirements.txt
+
+PS C:\Users\Victor\sistema_lanchonete> git add . 
+warning: in the working copy of '.gitignore', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'README.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'pyproject.toml', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'LEIA_PRIMEIRO.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'codigo_fonte/src/__init__.py', LF will be replaced by CRLF the next time Git touches it     
+warning: in the working copy of 'codigo_fonte/src/config/__init__.py', LF will be replaced by CRLF the next time Git touches 
+it
+warning: in the working copy of 'codigo_fonte/src/config/versioning.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'codigo_fonte/src/estoque/__init__.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'codigo_fonte/src/estoque/controller.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'codigo_fonte/src/estoque/database.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'codigo_fonte/src/interface/__init__.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'codigo_fonte/src/interface/estoque_window.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'codigo_fonte/src/interface/historico_window.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'codigo_fonte/src/interface/main_window.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'codigo_fonte/src/pedidos/__init__.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'codigo_fonte/src/pedidos/export.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'codigo_fonte/src/pedidos/graficos.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'codigo_fonte/src/pedidos/historico.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'codigo_fonte/src/relatorios/dashboard.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'codigo_fonte/src/utils/__init__.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'codigo_fonte/src/utils/helpers.py', LF will be replaced by CRLF the next time Git touches itwarning: in the working copy of 'codigo_fonte/test_dashboard_demo.py', LF will be replaced by CRLF the next time Git touches 
+it
+warning: in the working copy of 'codigo_fonte/test_simples.py', LF will be replaced by CRLF the next time Git touches it     
+warning: in the working copy of 'codigo_fonte/tests/__init__.py', LF will be replaced by CRLF the next time Git touches it   
+warning: in the working copy of 'codigo_fonte/tests/test_estoque.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'codigo_fonte/tests/test_pedidos.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'documentacao/AJUSTES_LAYOUT_DASHBOARD.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'documentacao/DASHBOARD_COMPLETO.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'documentacao/DOCUMENTACAO_COMPLETA.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'documentacao/GUIA_GITHUB.md', LF will be replaced by CRLF the next time Git touches it      
+warning: in the working copy of 'documentacao/GUIA_LICENCIAMENTO.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'documentacao/INSTRUCOES_INSTALACAO.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'documentacao/INSTRUCOES_SINCRONIZACAO.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'documentacao/MANUAL_TREINAMENTO_SISTEMA_LANCHONETE.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'documentacao/SOLUCAO_AMBIENTE_VIRTUAL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'ferramentas/atualizar_github.bat', LF will be replaced by CRLF the next time Git touches it 
+warning: in the working copy of 'ferramentas/build_pyinstaller.py', LF will be replaced by CRLF the next time Git touches it 
+warning: in the working copy of 'ferramentas/executar_lanchonete.bat', LF will be replaced by CRLF the next time Git touches 
+it
+warning: in the working copy of 'ferramentas/setup_git.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'ferramentas/sincronizar_github.py', LF will be replaced by CRLF the next time Git touches itwarning: in the working copy of 'ferramentas/upload_github_direto.py', LF will be replaced by CRLF the next time Git touches 
+it
+warning: in the working copy of 'main_funcional.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'protecao_comercial/build_commercial.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'protecao_comercial/exemplo_licenciamento.py', LF will be replaced by CRLF the next time Git 
+touches it
+warning: in the working copy of 'protecao_comercial/license_system.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'protecao_comercial/protecao_comercial.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'requirements.txt', LF will be replaced by CRLF the next time Git touches it

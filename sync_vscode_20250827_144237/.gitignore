@@ -1,0 +1,55 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+ENV/
+.pytest_cache/
+.coverage
+
+# Sistema
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+*~
+
+# Replit
+.replit
+.config/
+.pythonlibs/
+.cache/
+.local/
+poetry.lock
+
+# Build
+build/
+dist/
+*.egg-info/
+main.build/
+main.dist/
+main.onefile-build/
+
+# Banco de dados (manter estrutura)
+data/*.db
+!data/.gitkeep
+
+# Relatórios gerados
+data/*.xlsx
+data/*.png
+data/backup_*.db
+
+# Configurações locais
+.env
+config.local.json
+
+# Backups
+backup_sistema_*/
+*.zip
+
+# Ambiente virtual
+venv_clean/

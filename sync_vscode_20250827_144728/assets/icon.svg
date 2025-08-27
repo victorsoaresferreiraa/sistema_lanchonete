@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle -->
+  <circle cx="128" cy="128" r="120" fill="#006400" stroke="#004000" stroke-width="4"/>
+  
+  <!-- Inner circle -->
+  <circle cx="128" cy="128" r="80" fill="#FFFFFF"/>
+  
+  <!-- Letter L -->
+  <text x="128" y="140" font-family="Arial, sans-serif" font-size="80" font-weight="bold" 
+        text-anchor="middle" fill="#006400">L</text>
+</svg>

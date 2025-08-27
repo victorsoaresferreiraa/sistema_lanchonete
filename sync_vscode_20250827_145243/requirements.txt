@@ -1,0 +1,15 @@
+# Sistema de Lanchonete - Para quem não usa Poetry
+# Use: pip install -r requirements.txt
+# OU: poetry install (recomendado)
+
+pandas>=1.5.0
+openpyxl>=3.0.0
+matplotlib>=3.5.0
+tabulate>=0.9.0
+pyinstaller>=5.0
+pytest>=7.0.0
+pytest-cov>=4.0.0
+black>=22.0.0
+flake8>=5.0.0
+mypy>=1.0.0
+nuitka>=1.0.0

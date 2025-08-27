@@ -8,6 +8,13 @@ Preferred communication style: Simple, everyday language.
 System requirements: Executable (.exe) with future update capabilities, pricing system integration, comprehensive stock management.
 Build issues: Nuitka download failures resolved with PyInstaller alternative and .bat execution scripts.
 Priority: System must work immediately in real lanchonete environment.
+Documentation: Complete technical documentation created for maintenance and future modifications.
+Knowledge transfer: User needs detailed explanations to understand Python architecture for independent maintenance.
+Financial Dashboard: Complete financial dashboard implemented with 8 metrics, 4 chart types, intelligent alerts, and Excel export capabilities (August 2025).
+Training Manual: Comprehensive training manual created for optimal system usage, covering all features, daily workflows, best practices, and troubleshooting (August 2025).
+Commercial Focus: User interested in real commercial viability and practical implementation. System must be production-ready for actual lanchonete businesses with realistic pricing and market analysis.
+Database Issues Resolved: Fixed "no such column id" and "NOT NULL constraint failed" errors through database structure unification and automatic migration system (August 2025).
+Universal Accessibility: System optimized for users from children to elderly with comprehensive keyboard shortcuts (F1-F10, Enter, ESC), large fonts (22pt titles, 14pt fields, 28pt totals), high contrast colors, oversized buttons, audio feedback, and intelligent navigation. Complete auto-installer .bat files created for automatic Python download and installation (August 2025).
 
 # System Architecture
 
@@ -37,6 +44,9 @@ Priority: System must work immediately in real lanchonete environment.
 ## Key Components
 - **Inventory Controller**: Manages product addition, updates, stock queries, and pricing
 - **Sales History Controller**: Handles sales recording, history retrieval, and financial tracking
+- **Credit Sales System**: Complete customer debt tracking with payment status and due dates
+- **Advanced Cash Control**: Opening/closing, withdrawals, reinforcements, and daily reports
+- **Backup System**: Complete backup, data-only backup, and Excel export capabilities
 - **Export Controller**: Generates Excel reports using pandas and openpyxl
 - **Chart Controller**: Creates interactive visualizations with matplotlib
 - **Utility Helpers**: Common functions for window centering, date formatting, and validation
